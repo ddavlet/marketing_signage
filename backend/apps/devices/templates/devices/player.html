@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ device.name }}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+    #slide { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+    #slide img, #slide video {
+      width: 100%; height: 100%; object-fit: contain;
+    }
+  </style>
+</head>
+<body>
+  <div id="slide"></div>
+
+  <script>
+    const ITEMS = {{ items|safe }};
+    const HEARTBEAT_URL = "{{ heartbeat_url }}";
+    const DEVICE_KEY = "{{ device_key }}";
+    const PLAYLIST_VERSION = {{ playlist.version }};
+    const HEARTBEAT_INTERVAL_MS = 30000;
+
+    let current = 0;
+
+    function showItem(index) {
+      const item = ITEMS[index];
+      const slide = document.getElementById("slide");
+      slide.innerHTML = "";
+
+      if (item.type === "image") {
+        const img = document.createElement("img");
+        img.src = item.url;
+        slide.appendChild(img);
+        setTimeout(() => advance(), item.duration * 1000);
+      } else {
+        const video = document.createElement("video");
+        video.src = item.url;
+        video.autoplay = true;
+        video.muted = true;
+        video.playsInline = true;
+        slide.appendChild(video);
+        // Use explicit duration as timeout fallback; also listen for ended
+        const timeout = setTimeout(() => advance(), item.duration * 1000);
+        video.addEventListener("ended", () => { clearTimeout(timeout); advance(); });
+      }
+    }
+
+    function advance() {
+      current = (current + 1) % ITEMS.length;
+      showItem(current);
+    }
+
+    async function heartbeat() {
+      try {
+        const res = await fetch(HEARTBEAT_URL, {
+          method: "POST",
+          headers: { "X-Device-Key": DEVICE_KEY },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.playlist_version !== null && data.playlist_version !== PLAYLIST_VERSION) {
+            window.location.reload();
+          }
+        }
+      } catch (_) { /* network blip — ignore */ }
+    }
+
+    if (ITEMS.length > 0) {
+      showItem(0);
+    }
+    setInterval(heartbeat, HEARTBEAT_INTERVAL_MS);
+    heartbeat();
+  </script>
+</body>
+</html>
