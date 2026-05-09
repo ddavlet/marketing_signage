@@ -16,8 +16,9 @@
 <body>
   <div id="slide"></div>
 
+  {{ items|json_script:"signage-items" }}
   <script>
-    const ITEMS = {{ items|safe }};
+    const ITEMS = JSON.parse(document.getElementById("signage-items").textContent);
     const HEARTBEAT_URL = "{{ heartbeat_url }}";
     const DEVICE_KEY = "{{ device_key }}";
     const PLAYLIST_VERSION = {{ playlist.version }};

@@ -37,9 +37,7 @@ def heartbeat(request):
 
 def player_view(request, device_key):
     device = get_object_or_404(
-        Device.objects.select_related(
-            "assigned_playlist__items__media"
-        ),
+        Device.objects.select_related("assigned_playlist"),
         api_key=device_key,
     )
 

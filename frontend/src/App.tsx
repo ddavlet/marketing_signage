@@ -1,0 +1,33 @@
+import { Route, Routes } from "react-router-dom";
+import AppShell from "@/components/layout/AppShell";
+import { ProtectedRoute, RoleRoute } from "@/routes";
+import Dashboard from "@/pages/Dashboard";
+import Devices from "@/pages/Devices";
+import Locations from "@/pages/Locations";
+import Login from "@/pages/Login";
+import Media from "@/pages/Media";
+import Playlists from "@/pages/Playlists";
+import Users from "@/pages/Users";
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+
+      <Route element={<ProtectedRoute />}>
+        <Route element={<AppShell />}>
+          <Route index element={<Dashboard />} />
+          <Route path="media" element={<Media />} />
+          <Route path="playlists" element={<Playlists />} />
+          <Route path="locations" element={<Locations />} />
+          <Route path="devices" element={<Devices />} />
+
+          {/* Admin only */}
+          <Route element={<RoleRoute allow={["admin"]} />}>
+            <Route path="users" element={<Users />} />
+          </Route>
+        </Route>
+      </Route>
+    </Routes>
+  );
+}
