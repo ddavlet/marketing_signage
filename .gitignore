@@ -26,3 +26,4 @@ frontend/.env.local
 .idea/
 .vscode/
 *.swp
+.claude/settings.local.json
