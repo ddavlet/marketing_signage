@@ -1,12 +1,14 @@
 import { Route, Routes } from "react-router-dom";
 import AppShell from "@/components/layout/AppShell";
 import { ProtectedRoute, RoleRoute } from "@/routes";
+import Analytics from "@/pages/Analytics";
 import Dashboard from "@/pages/Dashboard";
 import Devices from "@/pages/Devices";
 import Locations from "@/pages/Locations";
 import Login from "@/pages/Login";
 import Media from "@/pages/Media";
 import Playlists from "@/pages/Playlists";
+import Schedules from "@/pages/Schedules";
 import Users from "@/pages/Users";
 
 export default function App() {
@@ -21,6 +23,8 @@ export default function App() {
           <Route path="playlists" element={<Playlists />} />
           <Route path="locations" element={<Locations />} />
           <Route path="devices" element={<Devices />} />
+          <Route path="schedules" element={<Schedules />} />
+          <Route path="analytics" element={<Analytics />} />
 
           {/* Admin only */}
           <Route element={<RoleRoute allow={["admin"]} />}>

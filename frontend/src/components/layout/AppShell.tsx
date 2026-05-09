@@ -1,4 +1,6 @@
 import {
+  BarChart3,
+  CalendarClock,
   Image,
   Layers,
   LayoutDashboard,
@@ -20,6 +22,8 @@ const NAV = [
   { to: "/playlists", icon: Layers, label: "Playlists" },
   { to: "/locations", icon: MapPin, label: "Locations" },
   { to: "/devices", icon: Monitor, label: "Devices" },
+  { to: "/schedules", icon: CalendarClock, label: "Schedules" },
+  { to: "/analytics", icon: BarChart3, label: "Analytics" },
 ];
 
 const ROLE_COLORS: Record<string, string> = {

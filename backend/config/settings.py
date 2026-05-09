@@ -33,6 +33,8 @@ INSTALLED_APPS = [
     "apps.media_library",
     "apps.playlists",
     "apps.devices",
+    "apps.schedules",
+    "apps.analytics",
 ]
 
 MIDDLEWARE = [

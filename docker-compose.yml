@@ -51,7 +51,7 @@ services:
         condition: service_healthy
     labels:
       - traefik.enable=true
-      - "traefik.http.routers.backend.rule=Host(`signage.localhost`) && (PathPrefix(`/api`) || PathPrefix(`/media/uploads`) || PathPrefix(`/admin`) || PathPrefix(`/player`) || PathPrefix(`/static`))"
+      - "traefik.http.routers.backend.rule=Host(`signage.localhost`) && (PathPrefix(`/api`) || PathPrefix(`/media/uploads`) || PathPrefix(`/admin`) || PathPrefix(`/player`) || PathPrefix(`/static`) || Path(`/sw.js`))"
       - traefik.http.routers.backend.priority=10
       - traefik.http.services.backend.loadbalancer.server.port=8000
 

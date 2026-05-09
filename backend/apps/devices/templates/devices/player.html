@@ -8,72 +8,215 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
     #slide { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-    #slide img, #slide video {
-      width: 100%; height: 100%; object-fit: contain;
+    #slide img, #slide video { width: 100%; height: 100%; object-fit: contain; }
+    #offline-badge {
+      position: fixed; bottom: 12px; right: 12px;
+      background: rgba(0,0,0,.6); color: #f59e0b;
+      font: 11px/1 sans-serif; padding: 4px 8px; border-radius: 4px;
+      display: none;
     }
   </style>
 </head>
 <body>
   <div id="slide"></div>
+  <div id="offline-badge">● offline</div>
 
-  {{ items|json_script:"signage-items" }}
   <script>
-    const ITEMS = JSON.parse(document.getElementById("signage-items").textContent);
+  (function () {
+    const DEVICE_KEY    = "{{ device_key }}";
+    const SYNC_URL      = "{{ sync_url }}";
     const HEARTBEAT_URL = "{{ heartbeat_url }}";
-    const DEVICE_KEY = "{{ device_key }}";
-    const PLAYLIST_VERSION = {{ playlist.version }};
-    const HEARTBEAT_INTERVAL_MS = 30000;
+    const PLAY_URL      = "{{ play_url }}";
+    const SYNC_INTERVAL    = 60_000;   // re-sync every 60 s when online
+    const HEARTBEAT_INTERVAL = 30_000;
+    const SCHEDULE_CHECK    = 60_000;  // re-evaluate schedule every 60 s
 
-    let current = 0;
+    let syncData   = null;
+    let slideTimer = null;
+    let currentItems = [];
+    let currentIdx   = 0;
+    let isOnline = navigator.onLine;
 
-    function showItem(index) {
-      const item = ITEMS[index];
-      const slide = document.getElementById("slide");
-      slide.innerHTML = "";
+    // ── offline badge ───────────────────────────────────────────────
+    const badge = document.getElementById('offline-badge');
+    window.addEventListener('online',  () => { isOnline = true;  badge.style.display = 'none'; });
+    window.addEventListener('offline', () => { isOnline = false; badge.style.display = 'block'; });
 
-      if (item.type === "image") {
-        const img = document.createElement("img");
+    // ── service worker ──────────────────────────────────────────────
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js', { scope: '/player/' }).catch(() => {});
+    }
+
+    // ── analytics buffer ────────────────────────────────────────────
+    const EVENTS_KEY = 'signage_play_events_' + DEVICE_KEY;
+
+    function bufferEvent(mediaId, playlistId, durationSeconds) {
+      try {
+        const buf = JSON.parse(localStorage.getItem(EVENTS_KEY) || '[]');
+        buf.push({ media_id: mediaId, playlist_id: playlistId || null,
+                   duration_seconds: durationSeconds, ts: Date.now() });
+        // Keep at most 500 events to avoid filling storage
+        localStorage.setItem(EVENTS_KEY, JSON.stringify(buf.slice(-500)));
+      } catch {}
+    }
+
+    async function flushEvents() {
+      try {
+        const raw = localStorage.getItem(EVENTS_KEY);
+        if (!raw) return;
+        const events = JSON.parse(raw);
+        if (!events.length) return;
+        const res = await fetch(PLAY_URL, {
+          method: 'POST',
+          headers: { 'X-Device-Key': DEVICE_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ events }),
+        });
+        if (res.ok) localStorage.removeItem(EVENTS_KEY);
+      } catch {}
+    }
+
+    // ── schedule evaluation ─────────────────────────────────────────
+    function getActiveItems(data) {
+      if (!data) return [];
+      const now   = new Date();
+      const day   = (now.getDay() + 6) % 7; // 0=Mon … 6=Sun
+      const hhmm  = now.toTimeString().slice(0, 5); // "HH:MM"
+
+      const matching = (data.schedules || [])
+        .filter(s => s.days.includes(day) && s.start <= hhmm && s.end > hhmm)
+        .sort((a, b) => b.priority - a.priority);
+
+      return (matching[0]?.items ?? data.default_items ?? []);
+    }
+
+    // ── media caching via SW ────────────────────────────────────────
+    function cacheMediaUrls(items) {
+      if (!navigator.serviceWorker.controller) return;
+      const urls = items.map(i => i.url);
+      navigator.serviceWorker.controller.postMessage({ type: 'CACHE_MEDIA', urls });
+    }
+
+    // ── slideshow ───────────────────────────────────────────────────
+    function showItem(idx) {
+      if (!currentItems.length) return;
+      const item  = currentItems[idx % currentItems.length];
+      const slide = document.getElementById('slide');
+      slide.innerHTML = '';
+
+      const startedAt = Date.now();
+
+      if (item.type === 'image') {
+        const img = document.createElement('img');
         img.src = item.url;
         slide.appendChild(img);
-        setTimeout(() => advance(), item.duration * 1000);
+        slideTimer = setTimeout(() => {
+          bufferEvent(item.media_id, item.playlist_id, Math.round((Date.now() - startedAt) / 1000));
+          advance();
+        }, item.duration * 1000);
       } else {
-        const video = document.createElement("video");
+        const video = document.createElement('video');
         video.src = item.url;
         video.autoplay = true;
         video.muted = true;
         video.playsInline = true;
         slide.appendChild(video);
-        // Use explicit duration as timeout fallback; also listen for ended
-        const timeout = setTimeout(() => advance(), item.duration * 1000);
-        video.addEventListener("ended", () => { clearTimeout(timeout); advance(); });
+        const timeout = setTimeout(() => {
+          bufferEvent(item.media_id, item.playlist_id, Math.round((Date.now() - startedAt) / 1000));
+          advance();
+        }, item.duration * 1000);
+        video.addEventListener('ended', () => {
+          clearTimeout(timeout);
+          bufferEvent(item.media_id, item.playlist_id, Math.round((Date.now() - startedAt) / 1000));
+          advance();
+        });
       }
     }
 
     function advance() {
-      current = (current + 1) % ITEMS.length;
-      showItem(current);
+      currentIdx = (currentIdx + 1) % (currentItems.length || 1);
+      showItem(currentIdx);
+    }
+
+    function applyItems(items) {
+      if (!items.length) return;
+      // Only reset if the playlist actually changed
+      const newSig = items.map(i => i.media_id + ':' + i.duration).join(',');
+      const oldSig = currentItems.map(i => i.media_id + ':' + i.duration).join(',');
+      if (newSig === oldSig) return;
+      clearTimeout(slideTimer);
+      currentItems = items;
+      currentIdx   = 0;
+      showItem(0);
+    }
+
+    // ── sync ────────────────────────────────────────────────────────
+    const SYNC_KEY    = 'signage_sync_' + DEVICE_KEY;
+    const VERSION_KEY = 'signage_ver_'  + DEVICE_KEY;
+
+    async function doSync() {
+      try {
+        const res = await fetch(SYNC_URL, {
+          headers: { 'X-Device-Key': DEVICE_KEY },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        syncData = data;
+        localStorage.setItem(SYNC_KEY, JSON.stringify(data));
+        localStorage.setItem(VERSION_KEY, String(data.version));
+
+        // Pre-cache ALL media referenced in this device's schedules + default
+        const allItems = [
+          ...(data.default_items || []),
+          ...(data.schedules || []).flatMap(s => s.items),
+        ];
+        const unique = [...new Map(allItems.map(i => [i.url, i])).values()];
+        cacheMediaUrls(unique);
+      } catch {}
     }
 
     async function heartbeat() {
       try {
         const res = await fetch(HEARTBEAT_URL, {
-          method: "POST",
-          headers: { "X-Device-Key": DEVICE_KEY },
+          method: 'POST',
+          headers: { 'X-Device-Key': DEVICE_KEY },
         });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.playlist_version !== null && data.playlist_version !== PLAYLIST_VERSION) {
-            window.location.reload();
-          }
-        }
-      } catch (_) { /* network blip — ignore */ }
+        if (!res.ok) return;
+        await flushEvents();
+      } catch {}
     }
 
-    if (ITEMS.length > 0) {
-      showItem(0);
+    // ── schedule re-evaluation loop ─────────────────────────────────
+    function reschedule() {
+      const items = getActiveItems(syncData);
+      applyItems(items.length ? items : currentItems);
     }
-    setInterval(heartbeat, HEARTBEAT_INTERVAL_MS);
-    heartbeat();
+
+    // ── boot ────────────────────────────────────────────────────────
+    async function boot() {
+      // Load cached sync data immediately (works offline)
+      const cached = localStorage.getItem(SYNC_KEY);
+      if (cached) {
+        try {
+          syncData = JSON.parse(cached);
+          const items = getActiveItems(syncData);
+          applyItems(items.length ? items : (syncData.default_items || []));
+        } catch {}
+      }
+
+      // Attempt a fresh sync (may fail if offline — that's fine)
+      await doSync();
+      const items = getActiveItems(syncData);
+      if (items.length) applyItems(items);
+
+      setInterval(doSync,     SYNC_INTERVAL);
+      setInterval(heartbeat,  HEARTBEAT_INTERVAL);
+      setInterval(reschedule, SCHEDULE_CHECK);
+
+      heartbeat();
+    }
+
+    boot();
+  })();
   </script>
 </body>
 </html>
