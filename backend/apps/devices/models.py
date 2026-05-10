@@ -60,3 +60,23 @@ class Device(models.Model):
             return "offline"
         delta = (now() - self.last_seen).total_seconds()
         return "online" if delta < self.ONLINE_THRESHOLD_SECONDS else "offline"
+
+
+class DeviceCommand(models.Model):
+    KINDS = [
+        ("restart_chromium", "Restart Chromium"),
+        ("reboot", "Reboot Device"),
+    ]
+
+    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name="commands")
+    kind = models.CharField(max_length=32, choices=KINDS)
+    payload = models.JSONField(default=dict, blank=True)
+    issued_at = models.DateTimeField(auto_now_add=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    acked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-issued_at"]
+
+    def __str__(self):
+        return f"{self.kind} → {self.device.name}"

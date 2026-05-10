@@ -7,7 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from .auth import DeviceKeyAuthentication
-from .models import Device
+from .models import Device, DeviceCommand
 
 
 def _auth_device(request):
@@ -94,6 +94,12 @@ def heartbeat(request):
         **{f: getattr(device, f) for f in update_fields}
     )
 
+    # Collect and deliver pending commands atomically.
+    pending_qs = DeviceCommand.objects.filter(device=device, delivered_at__isnull=True)
+    commands = list(pending_qs.values("id", "kind", "payload"))
+    if commands:
+        pending_qs.update(delivered_at=now())
+
     playlist_version = device.assigned_playlist.version if device.assigned_playlist else 0
 
     def _hhmm(t):
@@ -109,8 +115,24 @@ def heartbeat(request):
             "off": _hhmm(device.screen_off_time),
             "tz": device.timezone or "UTC",
         },
-        "commands": [],
+        "commands": commands,
     })
+
+
+# ── command ack ────────────────────────────────────────────────────────────
+
+@csrf_exempt
+@require_POST
+def ack_command(request, command_id):
+    device = _auth_device(request)
+    if device is None:
+        return JsonResponse({"detail": "Invalid or missing device key."}, status=401)
+    updated = DeviceCommand.objects.filter(
+        pk=command_id, device=device, acked_at__isnull=True
+    ).update(acked_at=now())
+    if not updated:
+        return JsonResponse({"detail": "Not found."}, status=404)
+    return JsonResponse({"status": "acked"})
 
 
 # ── sync ───────────────────────────────────────────────────────────────────

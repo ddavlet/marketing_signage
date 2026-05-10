@@ -7,7 +7,9 @@ import {
   MapPin,
   Monitor,
   Plus,
+  Power,
   RefreshCw,
+  RotateCcw,
   Save,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -171,6 +173,7 @@ function DeviceDetail({
   const [showKey, setShowKey] = useState(false);
   const [confirmRegen, setConfirmRegen] = useState(false);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
+  const [confirmReboot, setConfirmReboot] = useState(false);
 
   // Reset form when device changes
   useEffect(() => {
@@ -198,6 +201,16 @@ function DeviceDetail({
       toast.success("Device updated");
     },
     onError: () => toast.error("Failed to save"),
+  });
+
+  const sendCmd = useMutation({
+    mutationFn: (kind: string) =>
+      api.post(`/api/devices/${device.id}/send-command/`, { kind }),
+    onSuccess: (_res, kind) => {
+      toast.success(kind === "reboot" ? "Reboot queued" : "Restart queued — device picks up on next heartbeat");
+      setConfirmReboot(false);
+    },
+    onError: () => toast.error("Failed to send command"),
   });
 
   const regen = useMutation({
@@ -398,6 +411,45 @@ function DeviceDetail({
               placeholder="UTC"
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
+          </div>
+        </div>
+
+        {/* Commands */}
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Commands</p>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => sendCmd.mutate("restart_chromium")}
+              disabled={sendCmd.isPending}
+              className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-700 font-medium transition-all disabled:opacity-50"
+            >
+              <RotateCcw size={14} className="text-indigo-500" />
+              Restart Chromium
+            </button>
+            {confirmReboot ? (
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-gray-500 flex-1">Reboot the device OS?</p>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  loading={sendCmd.isPending}
+                  onClick={() => sendCmd.mutate("reboot")}
+                >
+                  Confirm reboot
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setConfirmReboot(false)}>
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmReboot(true)}
+                className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-700 font-medium transition-all"
+              >
+                <Power size={14} className="text-red-400" />
+                Reboot device
+              </button>
+            )}
           </div>
         </div>
 

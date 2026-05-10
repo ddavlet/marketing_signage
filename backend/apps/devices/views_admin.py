@@ -6,7 +6,7 @@ from rest_framework.response import Response
 
 from apps.users.permissions import IsAdminOrManager
 
-from .models import Device
+from .models import Device, DeviceCommand
 from .serializers import (
     ApproveDeviceSerializer,
     DeviceDetailSerializer,
@@ -55,6 +55,19 @@ class DeviceViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset().filter(is_approved=False)
         serializer = PendingDeviceSerializer(queryset, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=["post"], url_path="send-command")
+    def send_command(self, request, pk=None):
+        """Queue a command for the device agent to pick up on next heartbeat."""
+        device = self.get_object()
+        kind = (request.data.get("kind") or "").strip()
+        if kind not in dict(DeviceCommand.KINDS):
+            return Response({"detail": "Invalid command kind."}, status=status.HTTP_400_BAD_REQUEST)
+        payload = request.data.get("payload", {})
+        if not isinstance(payload, dict):
+            payload = {}
+        cmd = DeviceCommand.objects.create(device=device, kind=kind, payload=payload)
+        return Response({"id": cmd.pk, "kind": cmd.kind}, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["post"], url_path="approve")
     def approve(self, request, pk=None):
