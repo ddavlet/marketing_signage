@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { BarChart3, Clock, Monitor, Play } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import api from "@/lib/api";
 import { Skeleton } from "@/components/ui/Skeleton";
 
@@ -34,9 +34,10 @@ const RANGES = [
 export default function Analytics() {
   const [range, setRange] = useState(RANGES[1]);
 
-  const since = range.hours
-    ? new Date(Date.now() - range.hours * 3600_000).toISOString()
-    : undefined;
+  const since = useMemo(
+    () => range.hours ? new Date(Date.now() - range.hours * 3600_000).toISOString() : undefined,
+    [range]
+  );
 
   const { data: summary, isLoading: sumLoading } = useQuery({
     queryKey: ["analytics-summary", since],
