@@ -6,6 +6,8 @@ from django.utils.timezone import now
 
 
 class Device(models.Model):
+    UPDATE_CHANNELS = [("stable", "Stable"), ("beta", "Beta")]
+
     name = models.CharField(max_length=200)
     location = models.ForeignKey(
         "locations.Location",
@@ -29,6 +31,18 @@ class Device(models.Model):
         null=True,
         related_name="+",
     )
+
+    # ── player agent fields ────────────────────────────────────────────────
+    is_approved = models.BooleanField(default=False)
+    hardware_id = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    sync_interval_seconds = models.PositiveIntegerField(default=60)
+    update_channel = models.CharField(max_length=16, choices=UPDATE_CHANNELS, default="stable")
+    screen_on_time = models.TimeField(null=True, blank=True)
+    screen_off_time = models.TimeField(null=True, blank=True)
+    timezone = models.CharField(max_length=64, default="UTC")
+    player_version = models.CharField(max_length=32, blank=True, default="")
+    os_info = models.JSONField(default=dict, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

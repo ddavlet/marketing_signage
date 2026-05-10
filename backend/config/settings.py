@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "apps.devices",
     "apps.schedules",
     "apps.analytics",
+    "apps.releases",
 ]
 
 MIDDLEWARE = [

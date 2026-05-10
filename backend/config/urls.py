@@ -19,6 +19,7 @@ urlpatterns = [
     path("api/devices/", include("apps.devices.urls_admin")),
     path("api/schedules/", include("apps.schedules.urls")),
     path("api/analytics/", include("apps.analytics.urls")),
+    path("api/player/releases/", include("apps.releases.urls")),
     # Device endpoints (X-Device-Key auth)
     path("api/device/", include("apps.devices.urls_device")),
     path("api/device/play/", PlayEventIngestView.as_view(), name="device-play"),

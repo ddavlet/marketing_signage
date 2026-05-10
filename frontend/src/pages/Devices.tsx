@@ -13,7 +13,6 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import api from "@/lib/api";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/utils";
@@ -162,6 +161,11 @@ function DeviceDetail({
     name: device.name,
     location: device.location ?? "",
     assigned_playlist: device.assigned_playlist ?? "",
+    sync_interval_seconds: device.sync_interval_seconds ?? 60,
+    update_channel: device.update_channel ?? "stable",
+    screen_on_time: device.screen_on_time ?? "",
+    screen_off_time: device.screen_off_time ?? "",
+    timezone: device.timezone ?? "UTC",
   });
   const [dirty, setDirty] = useState(false);
   const [showKey, setShowKey] = useState(false);
@@ -174,6 +178,11 @@ function DeviceDetail({
       name: device.name,
       location: device.location ?? "",
       assigned_playlist: device.assigned_playlist ?? "",
+      sync_interval_seconds: device.sync_interval_seconds ?? 60,
+      update_channel: device.update_channel ?? "stable",
+      screen_on_time: device.screen_on_time ?? "",
+      screen_off_time: device.screen_off_time ?? "",
+      timezone: device.timezone ?? "UTC",
     });
     setDirty(false);
     setShowKey(false);
@@ -213,6 +222,11 @@ function DeviceDetail({
       name: form.name,
       location: form.location || null,
       assigned_playlist: form.assigned_playlist || null,
+      sync_interval_seconds: Number(form.sync_interval_seconds) || 60,
+      update_channel: form.update_channel,
+      screen_on_time: form.screen_on_time || null,
+      screen_off_time: form.screen_off_time || null,
+      timezone: form.timezone || "UTC",
     });
   }
 
@@ -306,6 +320,119 @@ function DeviceDetail({
               </option>
             ))}
           </select>
+        </div>
+
+        <hr className="border-gray-100" />
+
+        {/* Player agent settings */}
+        <div className="space-y-4">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Player agent</p>
+
+          {/* Sync interval + update channel */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                Sync interval (s)
+              </label>
+              <input
+                type="number"
+                min={10}
+                max={3600}
+                value={form.sync_interval_seconds}
+                onChange={(e) => handleChange("sync_interval_seconds", e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                Update channel
+              </label>
+              <div className="flex gap-1.5">
+                {["stable", "beta"].map((ch) => (
+                  <button
+                    key={ch}
+                    type="button"
+                    onClick={() => handleChange("update_channel", ch)}
+                    className={cn(
+                      "flex-1 py-2.5 rounded-xl text-xs font-semibold capitalize border transition-all",
+                      form.update_channel === ch
+                        ? "bg-gray-900 text-white border-gray-900"
+                        : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                    )}
+                  >
+                    {ch}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Screen schedule */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">
+              Screen schedule <span className="text-gray-400 font-normal">(leave blank = always on)</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="time"
+                value={form.screen_on_time}
+                onChange={(e) => handleChange("screen_on_time", e.target.value)}
+                className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <span className="text-xs text-gray-400">→</span>
+              <input
+                type="time"
+                value={form.screen_off_time}
+                onChange={(e) => handleChange("screen_off_time", e.target.value)}
+                className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+
+          {/* Timezone */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Timezone</label>
+            <input
+              value={form.timezone}
+              onChange={(e) => handleChange("timezone", e.target.value)}
+              placeholder="UTC"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+        </div>
+
+        {/* Device info (read-only) */}
+        <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 space-y-2.5">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Device info</p>
+          {/* Player version */}
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-gray-400 flex-shrink-0">Player version</span>
+            <span className="text-xs text-gray-700 font-mono">{device.player_version || "—"}</span>
+          </div>
+          {/* OS */}
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-gray-400 flex-shrink-0">OS</span>
+            <span className="text-xs text-gray-700 text-right">
+              {device.os_info?.pretty_name || device.os_info?.id || "—"}
+            </span>
+          </div>
+          {/* Hardware ID with copy */}
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-gray-400 flex-shrink-0">Hardware ID</span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-xs text-gray-700 font-mono truncate max-w-[120px]" title={device.hardware_id}>
+                {device.hardware_id ? `${device.hardware_id.slice(0, 8)}…` : "—"}
+              </span>
+              {device.hardware_id && (
+                <button
+                  onClick={() => { navigator.clipboard.writeText(device.hardware_id); toast.success("Hardware ID copied"); }}
+                  className="text-gray-400 hover:text-gray-600 flex-shrink-0"
+                >
+                  <Copy size={12} />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         <hr className="border-gray-100" />

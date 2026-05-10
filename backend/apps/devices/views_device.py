@@ -1,3 +1,5 @@
+import json
+
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils.timezone import now
@@ -14,6 +16,60 @@ def _auth_device(request):
     return result[0] if result else None
 
 
+# ── register (open; pre-approval) ──────────────────────────────────────────
+
+@csrf_exempt
+@require_POST
+def register(request):
+    """First-boot registration. Open endpoint, idempotent on hardware_id.
+
+    A device that has never been seen is created as pending. Subsequent calls
+    return {"status": "pending"} until an admin approves it in the panel,
+    after which they return {"status": "approved", "api_key": ...}.
+    """
+    try:
+        body = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"detail": "Invalid JSON."}, status=400)
+
+    hardware_id = (body.get("hardware_id") or "").strip()
+    if not hardware_id:
+        return JsonResponse({"detail": "hardware_id required."}, status=400)
+
+    hostname = (body.get("hostname") or "").strip() or "Unnamed device"
+    os_info = body.get("os_info") or {}
+    if not isinstance(os_info, dict):
+        os_info = {}
+    player_version = (body.get("player_version") or "").strip()
+
+    device, created = Device.objects.get_or_create(
+        hardware_id=hardware_id,
+        defaults={
+            "name": hostname[:200],
+            "is_approved": False,
+            "os_info": os_info,
+            "player_version": player_version,
+        },
+    )
+
+    # Refresh metadata from the device on each register call so admins see
+    # current OS/version while deciding whether to approve.
+    if not created:
+        update_fields = []
+        if os_info and device.os_info != os_info:
+            device.os_info = os_info
+            update_fields.append("os_info")
+        if player_version and device.player_version != player_version:
+            device.player_version = player_version
+            update_fields.append("player_version")
+        if update_fields:
+            device.save(update_fields=update_fields)
+
+    if device.is_approved:
+        return JsonResponse({"status": "approved", "api_key": str(device.api_key)})
+    return JsonResponse({"status": "pending"})
+
+
 # ── heartbeat ──────────────────────────────────────────────────────────────
 
 @csrf_exempt
@@ -22,9 +78,39 @@ def heartbeat(request):
     device = _auth_device(request)
     if device is None:
         return JsonResponse({"detail": "Invalid or missing device key."}, status=401)
-    Device.objects.filter(pk=device.pk).update(last_seen=now())
-    playlist_version = device.assigned_playlist.version if device.assigned_playlist else None
-    return JsonResponse({"playlist_version": playlist_version, "server_time": now().isoformat()})
+
+    update_fields = ["last_seen"]
+    device.last_seen = now()
+
+    # Capture the running player version reported on every request so the
+    # admin panel reflects post-auto-update versions without requiring the
+    # agent to re-register.
+    reported_version = (request.headers.get("X-Player-Version") or "").strip()
+    if reported_version and reported_version != device.player_version:
+        device.player_version = reported_version[:32]
+        update_fields.append("player_version")
+
+    Device.objects.filter(pk=device.pk).update(
+        **{f: getattr(device, f) for f in update_fields}
+    )
+
+    playlist_version = device.assigned_playlist.version if device.assigned_playlist else 0
+
+    def _hhmm(t):
+        return t.strftime("%H:%M") if t else ""
+
+    return JsonResponse({
+        "playlist_version": playlist_version,
+        "server_time": now().isoformat(),
+        "sync_interval_seconds": device.sync_interval_seconds,
+        "update_channel": device.update_channel,
+        "screen_schedule": {
+            "on": _hhmm(device.screen_on_time),
+            "off": _hhmm(device.screen_off_time),
+            "tz": device.timezone or "UTC",
+        },
+        "commands": [],
+    })
 
 
 # ── sync ───────────────────────────────────────────────────────────────────

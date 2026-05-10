@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, MapPin, Plus, Trash2 } from "lucide-react";
+import { ChevronRight, MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { useAuthStore } from "@/lib/auth-store";
 
 /** Flatten tree into a list for the dropdown */
 function flattenTree(nodes: any[], depth = 0): { id: number; name: string; depth: number }[] {
@@ -17,41 +18,140 @@ function flattenTree(nodes: any[], depth = 0): { id: number; name: string; depth
   return result;
 }
 
-function LocationNode({ loc, depth = 0, onDelete }: { loc: any; depth?: number; onDelete: (id: number) => void }) {
+interface LocationNodeProps {
+  loc: any;
+  depth?: number;
+  parentOptions: { id: number; name: string; depth: number }[];
+  onDelete: (id: number) => void;
+  onUpdate: (id: number, payload: any) => void;
+  isUpdating: boolean;
+  canEdit: boolean;
+}
+
+function LocationNode({ loc, depth = 0, parentOptions, onDelete, onUpdate, isUpdating, canEdit }: LocationNodeProps) {
   const [open, setOpen] = useState(true);
   const [confirm, setConfirm] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({
+    name: loc.name ?? "",
+    description: loc.description ?? "",
+    parent: loc.parent ? String(loc.parent) : "",
+  });
   const hasChildren = loc.children?.length > 0;
+
+  // Disallow choosing self or any descendant as parent
+  const descendantIds = new Set<number>();
+  const collect = (n: any) => {
+    descendantIds.add(n.id);
+    n.children?.forEach(collect);
+  };
+  collect(loc);
+  const validParents = parentOptions.filter((p) => !descendantIds.has(p.id));
+
+  function startEdit() {
+    setForm({
+      name: loc.name ?? "",
+      description: loc.description ?? "",
+      parent: loc.parent ? String(loc.parent) : "",
+    });
+    setEditing(true);
+  }
 
   return (
     <div>
-      <div
-        className="flex items-center gap-2 px-4 py-2.5 hover:bg-gray-50 group cursor-pointer"
-        style={{ paddingLeft: `${16 + depth * 24}px` }}
-        onClick={() => hasChildren && setOpen((o) => !o)}
-      >
-        {hasChildren ? (
-          <ChevronRight size={13} className={`text-gray-400 transition-transform flex-shrink-0 ${open ? "rotate-90" : ""}`} />
-        ) : (
-          <span className="w-3.5 flex-shrink-0" />
-        )}
-        <MapPin size={13} className="text-gray-300 flex-shrink-0" />
-        <span className="text-sm text-gray-800 font-medium">{loc.name}</span>
-        {loc.description && <span className="text-xs text-gray-400 ml-1 truncate hidden sm:block">— {loc.description}</span>}
-        <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-          {confirm ? (
-            <>
-              <Button size="sm" variant="danger" onClick={() => onDelete(loc.id)}>Delete</Button>
-              <Button size="sm" variant="ghost" onClick={() => setConfirm(false)}>Cancel</Button>
-            </>
+      {editing ? (
+        <div className="px-4 py-3 bg-gray-50 border-l-2 border-indigo-500 space-y-3" style={{ paddingLeft: `${16 + depth * 24}px` }}>
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              autoFocus
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              placeholder="Name"
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <select
+              value={form.parent}
+              onChange={(e) => setForm((f) => ({ ...f, parent: e.target.value }))}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="">— root (no parent) —</option>
+              {validParents.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {"  ".repeat(p.depth)}{p.depth > 0 ? "↳ " : ""}{p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <input
+            value={form.description}
+            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+            placeholder="Description (optional)"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              onClick={() =>
+                onUpdate(loc.id, {
+                  name: form.name,
+                  description: form.description,
+                  parent: form.parent ? Number(form.parent) : null,
+                })
+              }
+              loading={isUpdating}
+              disabled={!form.name}
+            >
+              Save
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
+          </div>
+        </div>
+      ) : (
+        <div
+          className="flex items-center gap-2 px-4 py-2.5 hover:bg-gray-50 group cursor-pointer"
+          style={{ paddingLeft: `${16 + depth * 24}px` }}
+          onClick={() => hasChildren && setOpen((o) => !o)}
+        >
+          {hasChildren ? (
+            <ChevronRight size={13} className={`text-gray-400 transition-transform flex-shrink-0 ${open ? "rotate-90" : ""}`} />
           ) : (
-            <button onClick={() => setConfirm(true)} className="text-gray-300 hover:text-red-500 p-1 transition-colors">
-              <Trash2 size={12} />
-            </button>
+            <span className="w-3.5 flex-shrink-0" />
+          )}
+          <MapPin size={13} className="text-gray-300 flex-shrink-0" />
+          <span className="text-sm text-gray-800 font-medium">{loc.name}</span>
+          {loc.description && <span className="text-xs text-gray-400 ml-1 truncate hidden sm:block">— {loc.description}</span>}
+          {canEdit && (
+            <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+              {confirm ? (
+                <>
+                  <Button size="sm" variant="danger" onClick={() => onDelete(loc.id)}>Delete</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setConfirm(false)}>Cancel</Button>
+                </>
+              ) : (
+                <>
+                  <button onClick={startEdit} className="text-gray-300 hover:text-indigo-500 p-1 transition-colors" title="Edit">
+                    <Pencil size={12} />
+                  </button>
+                  <button onClick={() => setConfirm(true)} className="text-gray-300 hover:text-red-500 p-1 transition-colors" title="Delete">
+                    <Trash2 size={12} />
+                  </button>
+                </>
+              )}
+            </div>
           )}
         </div>
-      </div>
+      )}
       {open && hasChildren && loc.children.map((child: any) => (
-        <LocationNode key={child.id} loc={child} depth={depth + 1} onDelete={onDelete} />
+        <LocationNode
+          key={child.id}
+          loc={child}
+          depth={depth + 1}
+          parentOptions={parentOptions}
+          onDelete={onDelete}
+          onUpdate={onUpdate}
+          isUpdating={isUpdating}
+          canEdit={canEdit}
+        />
       ))}
     </div>
   );
@@ -59,6 +159,8 @@ function LocationNode({ loc, depth = 0, onDelete }: { loc: any; depth?: number; 
 
 export default function Locations() {
   const qc = useQueryClient();
+  const role = useAuthStore((s) => s.user?.role);
+  const canEdit = role === "admin" || role === "manager";
   const { data, isLoading } = useQuery({
     queryKey: ["locations"],
     queryFn: () => api.get("/api/locations/").then((r) => r.data),
@@ -88,6 +190,16 @@ export default function Locations() {
       toast.success("Location deleted");
     },
     onError: () => toast.error("Delete failed — location may have devices assigned"),
+  });
+
+  const update = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: any }) =>
+      api.patch(`/api/locations/${id}/`, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["locations"] });
+      toast.success("Location updated");
+    },
+    onError: () => toast.error("Failed to update location"),
   });
 
   return (
@@ -169,7 +281,15 @@ export default function Locations() {
       ) : (
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden divide-y divide-gray-50">
           {locations.map((loc) => (
-            <LocationNode key={loc.id} loc={loc} onDelete={(id) => remove.mutate(id)} />
+            <LocationNode
+              key={loc.id}
+              loc={loc}
+              parentOptions={flatLocations}
+              onDelete={(id) => remove.mutate(id)}
+              onUpdate={(id, payload) => update.mutate({ id, payload })}
+              isUpdating={update.isPending}
+              canEdit={canEdit}
+            />
           ))}
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, Plus, Trash2 } from "lucide-react";
+import { CalendarClock, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import api from "@/lib/api";
@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { useAuthStore } from "@/lib/auth-store";
 import { cn } from "@/lib/utils";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -40,9 +41,123 @@ function DayPicker({ value, onChange }: { value: number[]; onChange: (v: number[
   );
 }
 
-function ScheduleRow({ s, onDelete }: { s: any; onDelete: () => void }) {
+interface ScheduleRowProps {
+  s: any;
+  devices: any[];
+  playlists: any[];
+  onDelete: () => void;
+  onUpdate: (id: number, payload: any) => void;
+  isUpdating: boolean;
+  canEdit: boolean;
+}
+
+function ScheduleRow({ s, devices, playlists, onDelete, onUpdate, isUpdating, canEdit }: ScheduleRowProps) {
   const [confirm, setConfirm] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState(() => ({
+    device: String(s.device ?? ""),
+    playlist: String(s.playlist ?? ""),
+    label: s.label ?? "",
+    days_of_week: s.days_of_week as number[],
+    start_time: (s.start_time ?? "00:00:00").slice(0, 5),
+    end_time: (s.end_time ?? "00:00:00").slice(0, 5),
+    priority: s.priority ?? 0,
+    is_active: s.is_active ?? true,
+  }));
   const activeDays = (s.days_of_week as number[]).map(d => DAY_LABELS[d]).join(", ");
+
+  function startEdit() {
+    setForm({
+      device: String(s.device ?? ""),
+      playlist: String(s.playlist ?? ""),
+      label: s.label ?? "",
+      days_of_week: s.days_of_week as number[],
+      start_time: (s.start_time ?? "00:00:00").slice(0, 5),
+      end_time: (s.end_time ?? "00:00:00").slice(0, 5),
+      priority: s.priority ?? 0,
+      is_active: s.is_active ?? true,
+    });
+    setEditing(true);
+  }
+
+  function save() {
+    onUpdate(s.id, {
+      device: Number(form.device),
+      playlist: Number(form.playlist),
+      label: form.label,
+      days_of_week: form.days_of_week,
+      start_time: form.start_time + ":00",
+      end_time: form.end_time + ":00",
+      priority: form.priority,
+      is_active: form.is_active,
+    });
+  }
+
+  if (editing) {
+    return (
+      <div className="px-5 py-4 bg-gray-50 border-l-2 border-indigo-500 space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Device</label>
+            <select value={form.device} onChange={e => setForm(f => ({ ...f, device: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              {devices.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Playlist</label>
+            <select value={form.playlist} onChange={e => setForm(f => ({ ...f, playlist: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              {playlists.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Label</label>
+            <input value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder="optional" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Priority</label>
+            <input type="number" min={0} value={form.priority} onChange={e => setForm(f => ({ ...f, priority: parseInt(e.target.value) || 0 }))} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-2">Days</label>
+          <div className="flex gap-1">
+            {DAY_LABELS.map((d, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setForm(f => ({ ...f, days_of_week: f.days_of_week.includes(i) ? f.days_of_week.filter(x => x !== i) : [...f.days_of_week, i] }))}
+                className={cn(
+                  "w-9 h-8 rounded-lg text-xs font-semibold transition-all",
+                  form.days_of_week.includes(i) ? "bg-indigo-600 text-white" : "bg-white border border-gray-200 text-gray-500 hover:bg-gray-100"
+                )}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Start</label>
+            <input type="time" value={form.start_time} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <span className="text-gray-400 mt-5">→</span>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">End</label>
+            <input type="time" value={form.end_time} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <label className="flex items-center gap-2 text-xs text-gray-600 mt-5 ml-2">
+            <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} />
+            Active
+          </label>
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" onClick={save} loading={isUpdating} disabled={!form.device || !form.playlist || !form.days_of_week.length}>Save</Button>
+          <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50/60 group">
@@ -53,18 +168,25 @@ function ScheduleRow({ s, onDelete }: { s: any; onDelete: () => void }) {
         </div>
         <p className="text-xs text-gray-400 mt-0.5">{activeDays} · {s.start_time.slice(0,5)} – {s.end_time.slice(0,5)}</p>
       </div>
-      <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        {confirm ? (
-          <>
-            <Button size="sm" variant="danger" onClick={onDelete}>Delete</Button>
-            <Button size="sm" variant="ghost" onClick={() => setConfirm(false)}>Cancel</Button>
-          </>
-        ) : (
-          <button onClick={() => setConfirm(true)} className="text-gray-300 hover:text-red-500 p-1 transition-colors">
-            <Trash2 size={13} />
-          </button>
-        )}
-      </div>
+      {canEdit && (
+        <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity items-center">
+          {confirm ? (
+            <>
+              <Button size="sm" variant="danger" onClick={onDelete}>Delete</Button>
+              <Button size="sm" variant="ghost" onClick={() => setConfirm(false)}>Cancel</Button>
+            </>
+          ) : (
+            <>
+              <button onClick={startEdit} className="text-gray-300 hover:text-indigo-500 p-1 transition-colors" title="Edit">
+                <Pencil size={13} />
+              </button>
+              <button onClick={() => setConfirm(true)} className="text-gray-300 hover:text-red-500 p-1 transition-colors" title="Delete">
+                <Trash2 size={13} />
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -82,6 +204,8 @@ const EMPTY_FORM = {
 
 export default function Schedules() {
   const qc = useQueryClient();
+  const role = useAuthStore((s) => s.user?.role);
+  const canEdit = role === "admin" || role === "manager";
   const [selectedDevice, setSelectedDevice] = useState<string>("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM });
@@ -112,6 +236,13 @@ export default function Schedules() {
     mutationFn: (id: number) => api.delete(`/api/schedules/${id}/`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["schedules"] }); toast.success("Schedule deleted"); },
     onError: () => toast.error("Failed to delete schedule"),
+  });
+
+  const update = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: any }) =>
+      api.patch(`/api/schedules/${id}/`, payload),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["schedules"] }); toast.success("Schedule updated"); },
+    onError: () => toast.error("Failed to update schedule"),
   });
 
   return (
@@ -229,7 +360,16 @@ export default function Schedules() {
       ) : (
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden divide-y divide-gray-50">
           {schedules.map(s => (
-            <ScheduleRow key={s.id} s={s} onDelete={() => remove.mutate(s.id)} />
+            <ScheduleRow
+              key={s.id}
+              s={s}
+              devices={devices}
+              playlists={playlists}
+              onDelete={() => remove.mutate(s.id)}
+              onUpdate={(id, payload) => update.mutate({ id, payload })}
+              isUpdating={update.isPending}
+              canEdit={canEdit}
+            />
           ))}
         </div>
       )}

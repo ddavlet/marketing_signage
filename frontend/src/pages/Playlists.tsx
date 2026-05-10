@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, CheckCircle2, ExternalLink, Film, Layers, Plus, Search, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { ArrowDown, ArrowUp, CheckCircle2, ExternalLink, Film, Layers, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { useAuthStore } from "@/lib/auth-store";
 import { cn } from "@/lib/utils";
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -32,6 +33,8 @@ function fmtDuration(sec: number | null | undefined) {
 
 export default function Playlists() {
   const qc = useQueryClient();
+  const role = useAuthStore((s) => s.user?.role);
+  const canEdit = role === "admin" || role === "manager";
 
   const { data: playlistsData, isLoading } = useQuery({
     queryKey: ["playlists"],
@@ -49,6 +52,20 @@ export default function Playlists() {
   const [form, setForm] = useState({ name: "", type: "media_list", external_url: "" });
   // Local duration overrides keyed by item index; cleared when selection changes
   const [durationEdits, setDurationEdits] = useState<Record<number, number | null>>({});
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ name: "", type: "media_list", external_url: "", is_active: true });
+
+  useEffect(() => {
+    if (selected) {
+      setEditForm({
+        name: selected.name ?? "",
+        type: selected.type ?? "media_list",
+        external_url: selected.external_url ?? "",
+        is_active: selected.is_active ?? true,
+      });
+      setEditing(false);
+    }
+  }, [selected?.id]);
 
   const playlists: any[] = playlistsData?.results ?? [];
   const allMedia: any[] = mediaData?.results ?? [];
@@ -97,6 +114,18 @@ export default function Playlists() {
       toast.success("Playlist deleted");
     },
     onError: () => toast.error("Failed to delete"),
+  });
+
+  const update = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: any }) =>
+      api.patch(`/api/playlists/${id}/`, payload).then((r) => r.data),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["playlists"] });
+      setSelected(data);
+      setEditing(false);
+      toast.success("Playlist updated");
+    },
+    onError: () => toast.error("Failed to update playlist"),
   });
 
   const setItems = useMutation({
@@ -245,16 +274,92 @@ export default function Playlists() {
       {selected ? (
         <div className="flex-1 overflow-hidden flex flex-col bg-gray-50">
           {/* Header */}
-          <div className="px-6 py-5 bg-white border-b border-gray-200 flex items-center justify-between flex-shrink-0">
-            <div>
-              <h2 className="text-base font-semibold text-gray-900">{selected.name}</h2>
-              <p className="text-xs text-gray-400 mt-0.5">{(selected.items ?? []).length} items · version {selected.version}</p>
-            </div>
-            {selected.type === "external_url" && (
-              <a href={selected.external_url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-sm text-indigo-600 hover:underline">
-                <ExternalLink size={13} />
-                Open URL
-              </a>
+          <div className="px-6 py-5 bg-white border-b border-gray-200 flex-shrink-0">
+            {editing ? (
+              <div className="space-y-3">
+                <input
+                  autoFocus
+                  value={editForm.name}
+                  onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="Playlist name"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <div className="flex gap-1.5">
+                  {["media_list", "external_url"].map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setEditForm((f) => ({ ...f, type: t }))}
+                      className={cn(
+                        "flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all",
+                        editForm.type === t ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-500 border-gray-200"
+                      )}
+                    >
+                      {t === "media_list" ? "Media list" : "External URL"}
+                    </button>
+                  ))}
+                </div>
+                {editForm.type === "external_url" && (
+                  <input
+                    value={editForm.external_url}
+                    onChange={(e) => setEditForm((f) => ({ ...f, external_url: e.target.value }))}
+                    placeholder="https://..."
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                )}
+                <label className="flex items-center gap-2 text-xs text-gray-600">
+                  <input
+                    type="checkbox"
+                    checked={editForm.is_active}
+                    onChange={(e) => setEditForm((f) => ({ ...f, is_active: e.target.checked }))}
+                  />
+                  Active
+                </label>
+                <div className="flex gap-1.5">
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      update.mutate({
+                        id: selected.id,
+                        payload: {
+                          name: editForm.name,
+                          type: editForm.type,
+                          external_url: editForm.type === "external_url" ? editForm.external_url : "",
+                          is_active: editForm.is_active,
+                        },
+                      })
+                    }
+                    loading={update.isPending}
+                    disabled={!editForm.name}
+                  >
+                    Save
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-semibold text-gray-900">{selected.name}</h2>
+                    {!selected.is_active && <Badge variant="warning">inactive</Badge>}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">{(selected.items ?? []).length} items · version {selected.version}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {selected.type === "external_url" && (
+                    <a href={selected.external_url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-sm text-indigo-600 hover:underline">
+                      <ExternalLink size={13} />
+                      Open URL
+                    </a>
+                  )}
+                  {canEdit && (
+                    <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>
+                      <Pencil size={12} />
+                      Edit
+                    </Button>
+                  )}
+                </div>
+              </div>
             )}
           </div>
 

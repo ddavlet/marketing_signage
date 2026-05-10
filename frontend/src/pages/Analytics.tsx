@@ -49,7 +49,7 @@ export default function Analytics() {
     queryFn: () => api.get("/api/analytics/plays/", { params: since ? { since } : {} }).then(r => r.data),
   });
 
-  const events: any[] = eventsData ?? [];
+  const events: any[] = eventsData?.results ?? (Array.isArray(eventsData) ? eventsData : []);
   const topMedia: any[] = summary?.top_media ?? [];
   const byDevice: any[] = summary?.by_device ?? [];
 
