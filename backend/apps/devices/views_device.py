@@ -25,7 +25,7 @@ def register(request):
 
     A device that has never been seen is created as pending. Subsequent calls
     return {"status": "pending"} until an admin approves it in the panel,
-    after which they return {"status": "approved", "api_key": ...}.
+    after which they return {"status": "approved", "device_key": ...}.
     """
     try:
         body = json.loads(request.body or b"{}")
@@ -66,7 +66,7 @@ def register(request):
             device.save(update_fields=update_fields)
 
     if device.is_approved:
-        return JsonResponse({"status": "approved", "api_key": str(device.api_key)})
+        return JsonResponse({"status": "approved", "device_key": str(device.api_key)})
     return JsonResponse({"status": "pending"})
 
 

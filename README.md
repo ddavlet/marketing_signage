@@ -46,7 +46,7 @@ The admin signs in at `/login` using their email + password and gets a JWT pair.
 Each device is provisioned with an `X-Device-Key` (UUID). It polls:
 
 - `POST /api/device/heartbeat/` — every ~30s. Updates `last_seen` and returns playlist version.
-- `GET  /api/device/playlist/` — fetches its assigned playlist with media URLs to play.
+- `GET  /api/device/sync/` — fetches device config, schedules, and media URLs to play.
 
 Devices do not use JWT — they auth with their per-device key only.
 
