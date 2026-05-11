@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Package, Plus, Trash2 } from "lucide-react";
+import { Package, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import api from "@/lib/api";
@@ -44,6 +44,7 @@ export default function Releases() {
   });
 
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<Form>({ ...EMPTY_FORM });
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
 
@@ -58,6 +59,19 @@ export default function Releases() {
       toast.success(`Release ${res.data.version} created`);
     },
     onError: () => toast.error("Failed to create release"),
+  });
+
+  const update = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: Form }) =>
+      api.patch(`/api/player/releases/${id}/`, payload),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["releases"] });
+      setShowForm(false);
+      setEditingId(null);
+      setForm({ ...EMPTY_FORM });
+      toast.success(`Release ${res.data.version} updated`);
+    },
+    onError: () => toast.error("Failed to update release"),
   });
 
   const toggle = useMutation({
@@ -84,6 +98,28 @@ export default function Releases() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
+  function openEdit(r: any) {
+    setForm({
+      version: r.version,
+      channel: r.channel,
+      os: r.os,
+      arch: r.arch,
+      download_url: r.download_url,
+      sha256: r.sha256,
+      signature: r.signature ?? "",
+      notes: r.notes ?? "",
+      is_active: r.is_active,
+    });
+    setEditingId(r.id);
+    setShowForm(true);
+  }
+
+  function closeForm() {
+    setShowForm(false);
+    setEditingId(null);
+    setForm({ ...EMPTY_FORM });
+  }
+
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -91,7 +127,7 @@ export default function Releases() {
           <h1 className="text-2xl font-bold text-gray-900">Releases</h1>
           <p className="text-sm text-gray-500 mt-0.5">Player agent binaries served to devices</p>
         </div>
-        <Button onClick={() => setShowForm(true)}>
+        <Button onClick={() => { setEditingId(null); setShowForm(true); }}>
           <Plus size={14} />
           New release
         </Button>
@@ -100,7 +136,7 @@ export default function Releases() {
       {/* Create form */}
       {showForm && (
         <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-5 shadow-sm">
-          <h2 className="font-semibold text-gray-900">New release</h2>
+          <h2 className="font-semibold text-gray-900">{editingId ? "Edit release" : "New release"}</h2>
 
           {/* Version */}
           <div>
@@ -205,13 +241,13 @@ export default function Releases() {
 
           <div className="flex gap-2 pt-1">
             <Button
-              onClick={() => create.mutate(form)}
-              loading={create.isPending}
+              onClick={() => editingId ? update.mutate({ id: editingId, payload: form }) : create.mutate(form)}
+              loading={create.isPending || update.isPending}
               disabled={!form.version || !form.download_url || !form.sha256}
             >
-              Create
+              {editingId ? "Save changes" : "Create"}
             </Button>
-            <Button variant="secondary" onClick={() => { setShowForm(false); setForm({ ...EMPTY_FORM }); }}>
+            <Button variant="secondary" onClick={closeForm}>
               Cancel
             </Button>
           </div>
@@ -275,13 +311,22 @@ export default function Releases() {
                         <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(null)}>Cancel</Button>
                       </div>
                     ) : (
-                      <button
-                        onClick={() => setConfirmDelete(r.id)}
-                        className="text-gray-300 hover:text-red-500 p-1 transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => openEdit(r)}
+                          className="text-gray-300 hover:text-indigo-500 p-1 transition-colors"
+                          title="Edit"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          onClick={() => setConfirmDelete(r.id)}
+                          className="text-gray-300 hover:text-red-500 p-1 transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>
