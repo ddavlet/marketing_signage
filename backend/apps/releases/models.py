@@ -22,7 +22,8 @@ class Release(models.Model):
     os = models.CharField(max_length=16, choices=OS_CHOICES, db_index=True)
     arch = models.CharField(max_length=16, choices=ARCH_CHOICES, db_index=True)
 
-    download_url = models.URLField(max_length=500)
+    binary = models.FileField(upload_to="player/binaries/", blank=True, null=True)
+    download_url = models.URLField(max_length=500, blank=True, default="")
     sha256 = models.CharField(max_length=64)
     signature = models.TextField(blank=True, default="")
     notes = models.TextField(blank=True, default="")
