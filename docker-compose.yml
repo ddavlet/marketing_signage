@@ -1,7 +1,7 @@
 services:
 
   traefik:
-    image: traefik:v3.3
+    image: traefik:v3
     command:
       - --log.level=INFO
       - --api.dashboard=true
@@ -20,7 +20,7 @@ services:
       - traefik.http.routers.traefik-dashboard.service=api@internal
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
