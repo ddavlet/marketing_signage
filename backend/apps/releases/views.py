@@ -41,4 +41,4 @@ class ReleaseViewSet(viewsets.ModelViewSet):
                 {"detail": "No release found for the requested parameters."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        return Response(ReleaseSerializer(release).data)
+        return Response(self.get_serializer(release).data)
