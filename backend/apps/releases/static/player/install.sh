@@ -177,7 +177,8 @@ fallback_image = "${FALLBACK_IMAGE}"
 EOF
   chmod 0640 "${CONFIG_DIR}/config.toml"
 else
-  log "Config already exists — skipping (update server_url manually if needed)."
+  log "Config already exists — updating chromium_path…"
+  sed -i "s|chromium_path  = \".*\"|chromium_path  = \"${CHROMIUM_WRAPPER}\"|" "${CONFIG_DIR}/config.toml"
 fi
 
 # ── 8. systemd unit ─────────────────────────────────────────────────────────
