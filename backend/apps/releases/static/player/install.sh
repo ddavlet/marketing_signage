@@ -185,7 +185,7 @@ ExecStart=/usr/local/bin/marketing-signage-player --config /etc/marketing-signag
 Restart=always
 RestartSec=5s
 Environment=DISPLAY=:0
-Environment=XAUTHORITY=/home/signage/.Xauthority
+Environment=XAUTHORITY=/var/lib/marketing-signage/.Xauthority
 StandardOutput=journal
 StandardError=journal
 
