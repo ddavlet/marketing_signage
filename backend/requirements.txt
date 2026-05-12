@@ -6,3 +6,4 @@ django-environ==0.11.*
 Pillow==10.*
 psycopg2-binary==2.9.*
 whitenoise==6.*
+gunicorn==23.*
