@@ -167,18 +167,18 @@ fi
 if [ ! -f "${CONFIG_DIR}/config.toml" ]; then
   log "Writing initial config…"
   cat > "${CONFIG_DIR}/config.toml" <<EOF
-server_url     = "${SERVER_URL}"
-device_key     = ""
+server_url = "${SERVER_URL}"
+device_key = ""
 update_channel = "${CHANNEL}"
-log_level      = "info"
-chromium_path  = "${CHROMIUM_WRAPPER}"
-data_dir       = "${DATA_DIR}"
+log_level = "info"
+chromium_path = "${CHROMIUM_WRAPPER}"
+data_dir = "${DATA_DIR}"
 fallback_image = "${FALLBACK_IMAGE}"
 EOF
   chmod 0640 "${CONFIG_DIR}/config.toml"
 else
   log "Config already exists — updating chromium_path…"
-  sed -i "s|chromium_path  = \".*\"|chromium_path  = \"${CHROMIUM_WRAPPER}\"|" "${CONFIG_DIR}/config.toml"
+  sed -i "s|chromium_path *= *\".*\"|chromium_path = \"${CHROMIUM_WRAPPER}\"|" "${CONFIG_DIR}/config.toml"
 fi
 
 # ── 8. systemd unit ─────────────────────────────────────────────────────────
