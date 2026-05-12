@@ -193,11 +193,12 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+ExecStartPre=/bin/sh -c 'U=$(loginctl list-sessions --no-legend | awk "$4==\"seat0\"{print $3}" | head -1); H=$(getent passwd "$U" | cut -d: -f6); echo "XAUTHORITY=$H/.Xauthority" > /run/marketing-signage.env'
+EnvironmentFile=-/run/marketing-signage.env
 ExecStart=/usr/local/bin/marketing-signage-player --config /etc/marketing-signage/config.toml
 Restart=always
 RestartSec=5s
 Environment=DISPLAY=:0
-Environment=XAUTHORITY=/var/lib/marketing-signage/.Xauthority
 StandardOutput=journal
 StandardError=journal
 
