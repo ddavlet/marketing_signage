@@ -100,7 +100,7 @@ EOF
   log "lightdm installed and enabled."
 fi
 
-# ── 4. system user ──────────────────────────────────────────────────────────
+# ── 3. system user ──────────────────────────────────────────────────────────
 
 if ! id "$SIGNAGE_USER" >/dev/null 2>&1; then
   log "Creating system user '$SIGNAGE_USER'…"
@@ -109,7 +109,7 @@ else
   log "User '$SIGNAGE_USER' already exists — skipping."
 fi
 
-# ── 5. download binary ──────────────────────────────────────────────────────
+# ── 4. download binary ──────────────────────────────────────────────────────
 
 ARCH="$(detect_arch)"
 
@@ -138,7 +138,7 @@ fi
 mv "${BINARY}.new" "$BINARY"
 log "Installed: $BINARY"
 
-# ── 6. config ───────────────────────────────────────────────────────────────
+# ── 5. config ───────────────────────────────────────────────────────────────
 
 mkdir -p "$CONFIG_DIR"
 
@@ -169,7 +169,7 @@ else
   log "Config already exists — skipping (update server_url manually if needed)."
 fi
 
-# ── 7. systemd unit ─────────────────────────────────────────────────────────
+# ── 6. systemd unit ─────────────────────────────────────────────────────────
 
 UNIT_FILE="/etc/systemd/system/${SERVICE}.service"
 cat > "$UNIT_FILE" <<'EOF'
@@ -197,7 +197,7 @@ systemctl daemon-reload
 systemctl enable --now "$SERVICE"
 log "Service enabled and started."
 
-# ── 8. print hardware-id for operator ───────────────────────────────────────
+# ── 7. print hardware-id for operator ───────────────────────────────────────
 
 HWID="$("$BINARY" --print-hwid 2>/dev/null || echo "(run '$BINARY --print-hwid' as root)")"
 
