@@ -42,6 +42,7 @@ class Device(models.Model):
     timezone = models.CharField(max_length=64, default="UTC")
     player_version = models.CharField(max_length=32, blank=True, default="")
     os_info = models.JSONField(default=dict, blank=True)
+    ssh_port = models.PositiveIntegerField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

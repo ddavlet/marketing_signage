@@ -168,6 +168,7 @@ function DeviceDetail({
     screen_on_time: device.screen_on_time ?? "",
     screen_off_time: device.screen_off_time ?? "",
     timezone: device.timezone ?? "UTC",
+    ssh_port: device.ssh_port != null ? String(device.ssh_port) : "",
   });
   const [dirty, setDirty] = useState(false);
   const [showKey, setShowKey] = useState(false);
@@ -186,6 +187,7 @@ function DeviceDetail({
       screen_on_time: device.screen_on_time ?? "",
       screen_off_time: device.screen_off_time ?? "",
       timezone: device.timezone ?? "UTC",
+      ssh_port: device.ssh_port != null ? String(device.ssh_port) : "",
     });
     setDirty(false);
     setShowKey(false);
@@ -240,6 +242,7 @@ function DeviceDetail({
       screen_on_time: form.screen_on_time || null,
       screen_off_time: form.screen_off_time || null,
       timezone: form.timezone || "UTC",
+      ssh_port: form.ssh_port ? Number(form.ssh_port) : null,
     });
   }
 
@@ -412,6 +415,43 @@ function DeviceDetail({
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
+        </div>
+
+        <hr className="border-gray-100" />
+
+        {/* SSH / Remote access */}
+        <div className="space-y-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">SSH / Remote access</p>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">
+              Reverse tunnel port <span className="text-gray-400 font-normal">(leave blank if not configured)</span>
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={65535}
+              value={form.ssh_port}
+              onChange={(e) => handleChange("ssh_port", e.target.value)}
+              placeholder="e.g. 2223"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          {form.ssh_port && (
+            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5">
+              <code className="flex-1 text-xs font-mono text-gray-600 break-all">
+                {`ssh -J kolberg user@localhost -p ${form.ssh_port}`}
+              </code>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`ssh -J kolberg user@localhost -p ${form.ssh_port}`);
+                  toast.success("SSH command copied");
+                }}
+                className="text-gray-400 hover:text-gray-600 flex-shrink-0"
+              >
+                <Copy size={13} />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Commands */}

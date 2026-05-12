@@ -42,6 +42,15 @@ def register(request):
         os_info = {}
     player_version = (body.get("player_version") or "").strip()
 
+    ssh_port = body.get("ssh_port") or None
+    if ssh_port is not None:
+        try:
+            ssh_port = int(ssh_port)
+            if not (1 <= ssh_port <= 65535):
+                ssh_port = None
+        except (TypeError, ValueError):
+            ssh_port = None
+
     device, created = Device.objects.get_or_create(
         hardware_id=hardware_id,
         defaults={
@@ -49,6 +58,7 @@ def register(request):
             "is_approved": False,
             "os_info": os_info,
             "player_version": player_version,
+            "ssh_port": ssh_port,
         },
     )
 
@@ -62,6 +72,9 @@ def register(request):
         if player_version and device.player_version != player_version:
             device.player_version = player_version
             update_fields.append("player_version")
+        if ssh_port is not None and device.ssh_port != ssh_port:
+            device.ssh_port = ssh_port
+            update_fields.append("ssh_port")
         if update_fields:
             device.save(update_fields=update_fields)
 
@@ -89,6 +102,16 @@ def heartbeat(request):
     if reported_version and reported_version != device.player_version:
         device.player_version = reported_version[:32]
         update_fields.append("player_version")
+
+    reported_ssh_port = request.headers.get("X-SSH-Port")
+    if reported_ssh_port:
+        try:
+            reported_ssh_port = int(reported_ssh_port)
+            if 1 <= reported_ssh_port <= 65535 and device.ssh_port != reported_ssh_port:
+                device.ssh_port = reported_ssh_port
+                update_fields.append("ssh_port")
+        except (TypeError, ValueError):
+            pass
 
     Device.objects.filter(pk=device.pk).update(
         **{f: getattr(device, f) for f in update_fields}

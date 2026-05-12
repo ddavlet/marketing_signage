@@ -16,6 +16,7 @@ PLAYER_FIELDS = [
     "timezone",
     "player_version",
     "os_info",
+    "ssh_port",
 ]
 
 
