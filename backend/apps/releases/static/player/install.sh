@@ -109,7 +109,18 @@ else
   log "User '$SIGNAGE_USER' already exists — skipping."
 fi
 
-# ── 4. download binary ──────────────────────────────────────────────────────
+# ── 4. chromium wrapper (needed to run as root without crashing) ─────────────
+
+CHROMIUM_WRAPPER="/usr/local/bin/chromium-signage"
+CHROMIUM_BIN="$(command -v chromium chromium-browser 2>/dev/null | head -1)"
+log "Installing chromium wrapper at $CHROMIUM_WRAPPER…"
+cat > "$CHROMIUM_WRAPPER" <<WRAPPER
+#!/bin/sh
+exec ${CHROMIUM_BIN} --no-sandbox "\$@"
+WRAPPER
+chmod 0755 "$CHROMIUM_WRAPPER"
+
+# ── 6. download binary ──────────────────────────────────────────────────────
 
 ARCH="$(detect_arch)"
 
@@ -138,7 +149,7 @@ fi
 mv "${BINARY}.new" "$BINARY"
 log "Installed: $BINARY"
 
-# ── 5. config ───────────────────────────────────────────────────────────────
+# ── 7. config ───────────────────────────────────────────────────────────────
 
 mkdir -p "$CONFIG_DIR"
 
@@ -160,7 +171,7 @@ server_url     = "${SERVER_URL}"
 device_key     = ""
 update_channel = "${CHANNEL}"
 log_level      = "info"
-chromium_path  = ""
+chromium_path  = "${CHROMIUM_WRAPPER}"
 data_dir       = "${DATA_DIR}"
 fallback_image = "${FALLBACK_IMAGE}"
 EOF
@@ -169,7 +180,7 @@ else
   log "Config already exists — skipping (update server_url manually if needed)."
 fi
 
-# ── 6. systemd unit ─────────────────────────────────────────────────────────
+# ── 8. systemd unit ─────────────────────────────────────────────────────────
 
 UNIT_FILE="/etc/systemd/system/${SERVICE}.service"
 cat > "$UNIT_FILE" <<'EOF'
@@ -197,7 +208,7 @@ systemctl daemon-reload
 systemctl enable --now "$SERVICE"
 log "Service enabled and started."
 
-# ── 7. print hardware-id for operator ───────────────────────────────────────
+# ── 9. print hardware-id for operator ───────────────────────────────────────
 
 HWID="$("$BINARY" --print-hwid 2>/dev/null || echo "(run '$BINARY --print-hwid' as root)")"
 
