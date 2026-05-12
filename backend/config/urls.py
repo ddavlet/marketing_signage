@@ -29,5 +29,4 @@ urlpatterns = [
     path("player/<uuid:device_key>/", views_device.player_view, name="player"),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
