@@ -220,6 +220,11 @@ def sync(request):
         "timezone": device.timezone or "UTC",
         "default_items": default_items,
         "schedules": schedules,
+        "screen_schedule": {
+            "on": _hhmm(device.screen_on_time),
+            "off": _hhmm(device.screen_off_time),
+            "tz": device.timezone or "UTC",
+        },
     })
 
 

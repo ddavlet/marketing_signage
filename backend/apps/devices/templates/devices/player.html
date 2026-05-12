@@ -75,6 +75,24 @@
       } catch {}
     }
 
+    // ── screen on/off evaluation ────────────────────────────────────
+    function isDisplayOn(data) {
+      const sched = data && data.screen_schedule;
+      if (!sched || !sched.on || !sched.off) return true;
+      const { hhmm } = zonedDayAndTime(sched.tz || 'UTC');
+      const cur    = parseInt(hhmm.slice(0,2)) * 60 + parseInt(hhmm.slice(3,5));
+      const onMin  = parseInt(sched.on.slice(0,2))  * 60 + parseInt(sched.on.slice(3,5));
+      const offMin = parseInt(sched.off.slice(0,2)) * 60 + parseInt(sched.off.slice(3,5));
+      if (onMin <= offMin) return cur >= onMin && cur < offMin;
+      return cur >= onMin || cur < offMin; // overnight window
+    }
+
+    function showBlack() {
+      clearTimeout(slideTimer);
+      slideTimer = null;
+      document.getElementById('slide').innerHTML = '';
+    }
+
     // ── schedule evaluation ─────────────────────────────────────────
     function zonedDayAndTime(tz) {
       const now = new Date();
@@ -203,6 +221,7 @@
 
     // ── schedule re-evaluation loop ─────────────────────────────────
     function reschedule() {
+      if (!isDisplayOn(syncData)) { showBlack(); return; }
       const items = getActiveItems(syncData);
       applyItems(items.length ? items : currentItems);
     }
@@ -214,15 +233,23 @@
       if (cached) {
         try {
           syncData = JSON.parse(cached);
-          const items = getActiveItems(syncData);
-          applyItems(items.length ? items : (syncData.default_items || []));
+          if (!isDisplayOn(syncData)) {
+            showBlack();
+          } else {
+            const items = getActiveItems(syncData);
+            applyItems(items.length ? items : (syncData.default_items || []));
+          }
         } catch {}
       }
 
       // Attempt a fresh sync (may fail if offline — that's fine)
       await doSync();
-      const items = getActiveItems(syncData);
-      if (items.length) applyItems(items);
+      if (!isDisplayOn(syncData)) {
+        showBlack();
+      } else {
+        const items = getActiveItems(syncData);
+        if (items.length) applyItems(items);
+      }
 
       setInterval(doSync,     SYNC_INTERVAL);
       setInterval(heartbeat,  HEARTBEAT_INTERVAL);
