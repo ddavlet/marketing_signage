@@ -194,6 +194,7 @@ def sync(request):
         "device_name": device.name,
         "version": version,
         "server_time": now().isoformat(),
+        "timezone": device.timezone or "UTC",
         "default_items": default_items,
         "schedules": schedules,
     })
