@@ -24,3 +24,4 @@ class ReleaseAdmin(admin.ModelAdmin):
             obj.sha256 = hashlib.sha256(obj.binary.read()).hexdigest()
             obj.binary.seek(0)
         super().save_model(request, obj, form, change)
+
