@@ -15,12 +15,13 @@ DATA_DIR="/var/lib/marketing-signage"
 CONFIG_DIR="/etc/marketing-signage"
 BINARY="/usr/local/bin/marketing-signage-player"
 SERVICE="marketing-signage-player"
-SIGNAGE_USER="signage"
+INSTALL_USER="${SUDO_USER:-}"
 
 for arg in "$@"; do
   case "$arg" in
     --server=*)  SERVER_URL="${arg#*=}" ;;
     --channel=*) CHANNEL="${arg#*=}" ;;
+    --user=*)    INSTALL_USER="${arg#*=}" ;;
     *)           echo "Unknown argument: $arg" >&2; exit 1 ;;
   esac
 done
@@ -30,6 +31,15 @@ if [ -z "$SERVER_URL" ]; then
   exit 1
 fi
 SERVER_URL="${SERVER_URL%/}"  # strip trailing slash
+
+if [ -z "$INSTALL_USER" ]; then
+  echo "Error: cannot detect desktop user. Pass --user=<username>." >&2
+  exit 1
+fi
+if ! id "$INSTALL_USER" >/dev/null 2>&1; then
+  echo "Error: user '$INSTALL_USER' does not exist." >&2
+  exit 1
+fi
 
 # ── root check ──────────────────────────────────────────────────────────────
 
@@ -70,19 +80,10 @@ apt-get install -y -qq \
 # Check if a display manager is already active (full desktop install).
 # systemctl list-units covers gdm, lightdm, sddm, xdm, etc.
 if systemctl list-units --type=service --state=active 2>/dev/null | grep -qE 'gdm|lightdm|sddm|xdm|wdm'; then
-  log "Display manager already running — skipping lightdm setup."
+  log "Display manager already running — configuring autologin for '$INSTALL_USER'…"
 else
   log "No display manager found — installing lightdm for auto-login…"
   apt-get install -y -qq lightdm
-
-  # Auto-login as signage user into an openbox session.
-  mkdir -p /etc/lightdm/lightdm.conf.d
-  cat > /etc/lightdm/lightdm.conf.d/50-signage.conf <<EOF
-[Seat:*]
-autologin-user=${SIGNAGE_USER}
-autologin-user-timeout=0
-user-session=openbox
-EOF
 
   # Openbox session file so lightdm knows what to launch.
   mkdir -p /usr/share/xsessions
@@ -100,13 +101,19 @@ EOF
   log "lightdm installed and enabled."
 fi
 
-# ── 3. system user ──────────────────────────────────────────────────────────
-
-if ! id "$SIGNAGE_USER" >/dev/null 2>&1; then
-  log "Creating system user '$SIGNAGE_USER'…"
-  useradd -r -m -d "$DATA_DIR" -s /usr/sbin/nologin "$SIGNAGE_USER"
+# Configure autologin — update main config if it has the setting, else write drop-in.
+if grep -q 'autologin-user=' /etc/lightdm/lightdm.conf 2>/dev/null; then
+  sed -i "s/autologin-user=.*/autologin-user=${INSTALL_USER}/" /etc/lightdm/lightdm.conf
+  log "Updated autologin-user in /etc/lightdm/lightdm.conf"
 else
-  log "User '$SIGNAGE_USER' already exists — skipping."
+  mkdir -p /etc/lightdm/lightdm.conf.d
+  cat > /etc/lightdm/lightdm.conf.d/50-signage.conf <<EOF
+[Seat:*]
+autologin-user=${INSTALL_USER}
+autologin-user-timeout=0
+user-session=openbox
+EOF
+  log "Wrote autologin config to /etc/lightdm/lightdm.conf.d/50-signage.conf"
 fi
 
 # ── 4. chromium wrapper (needed to run as root without crashing) ─────────────
@@ -116,7 +123,7 @@ CHROMIUM_BIN="$(command -v chromium chromium-browser 2>/dev/null | head -1)"
 log "Installing chromium wrapper at $CHROMIUM_WRAPPER…"
 cat > "$CHROMIUM_WRAPPER" <<WRAPPER
 #!/bin/sh
-exec ${CHROMIUM_BIN} --no-sandbox "\$@"
+exec runuser -u ${INSTALL_USER} -- ${CHROMIUM_BIN} --no-sandbox "\$@"
 WRAPPER
 chmod 0755 "$CHROMIUM_WRAPPER"
 
@@ -152,6 +159,8 @@ log "Installed: $BINARY"
 # ── 7. config ───────────────────────────────────────────────────────────────
 
 mkdir -p "$CONFIG_DIR"
+mkdir -p "$DATA_DIR"
+chown "$INSTALL_USER" "$DATA_DIR"
 
 # Download fallback image (shown when the server is unreachable).
 FALLBACK_IMAGE="${CONFIG_DIR}/fallback.png"
@@ -193,7 +202,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStartPre=/bin/sh -c 'U=$(loginctl list-sessions --no-legend | awk "$4==\"seat0\"{print $3}" | head -1); H=$(getent passwd "$U" | cut -d: -f6); echo "XAUTHORITY=$H/.Xauthority" > /run/marketing-signage.env'
+ExecStartPre=/bin/sh -c 'S=$(loginctl show-seat seat0 -p ActiveSession --value 2>/dev/null); U=$(loginctl show-session "$S" -p Name --value 2>/dev/null); H=$(getent passwd "$U" | cut -d: -f6); echo "XAUTHORITY=$H/.Xauthority" > /run/marketing-signage.env'
 EnvironmentFile=-/run/marketing-signage.env
 ExecStart=/usr/local/bin/marketing-signage-player --config /etc/marketing-signage/config.toml
 Restart=always
