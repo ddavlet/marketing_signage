@@ -169,6 +169,7 @@ function DeviceDetail({
     screen_off_time: device.screen_off_time ?? "",
     timezone: device.timezone ?? "UTC",
     ssh_port: device.ssh_port != null ? String(device.ssh_port) : "",
+    anydesk_id: device.anydesk_id ?? "",
   });
   const [dirty, setDirty] = useState(false);
   const [showKey, setShowKey] = useState(false);
@@ -188,6 +189,7 @@ function DeviceDetail({
       screen_off_time: device.screen_off_time ?? "",
       timezone: device.timezone ?? "UTC",
       ssh_port: device.ssh_port != null ? String(device.ssh_port) : "",
+      anydesk_id: device.anydesk_id ?? "",
     });
     setDirty(false);
     setShowKey(false);
@@ -243,6 +245,7 @@ function DeviceDetail({
       screen_off_time: form.screen_off_time || null,
       timezone: form.timezone || "UTC",
       ssh_port: form.ssh_port ? Number(form.ssh_port) : null,
+      anydesk_id: form.anydesk_id,
     });
   }
 
@@ -433,6 +436,18 @@ function DeviceDetail({
               value={form.ssh_port}
               onChange={(e) => handleChange("ssh_port", e.target.value)}
               placeholder="e.g. 2223"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">
+              AnyDesk ID <span className="text-gray-400 font-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={form.anydesk_id}
+              onChange={(e) => handleChange("anydesk_id", e.target.value)}
+              placeholder="e.g. 123 456 789"
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
