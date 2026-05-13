@@ -27,3 +27,4 @@ frontend/.env.local
 .vscode/
 *.swp
 .claude/settings.local.json
+CLAUDE.md
