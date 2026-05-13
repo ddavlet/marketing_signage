@@ -43,6 +43,7 @@ class Device(models.Model):
     player_version = models.CharField(max_length=32, blank=True, default="")
     os_info = models.JSONField(default=dict, blank=True)
     ssh_port = models.PositiveIntegerField(null=True, blank=True)
+    anydesk_id = models.CharField(max_length=64, blank=True, default="")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

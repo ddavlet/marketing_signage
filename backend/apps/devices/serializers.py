@@ -28,7 +28,7 @@ class DeviceSerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "location", "assigned_playlist",
             "status", "last_seen", "registered_by",
-            "created_at", "updated_at",
+            "anydesk_id", "created_at", "updated_at",
         ] + PLAYER_FIELDS
         read_only_fields = [
             "id", "api_key", "status", "last_seen", "registered_by",
