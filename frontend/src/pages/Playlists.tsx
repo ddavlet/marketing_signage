@@ -235,7 +235,7 @@ export default function Playlists() {
                 key={p.id}
                 onClick={() => { setSelected(p); setConfirmDelete(null); setMediaSearch(""); setDurationEdits({}); }}
                 className={cn(
-                  "px-4 py-3.5 border-b border-gray-50 cursor-pointer transition-all",
+                  "group px-4 py-3.5 border-b border-gray-50 cursor-pointer transition-all",
                   selected?.id === p.id ? "bg-indigo-50 border-l-2 border-l-indigo-500" : "hover:bg-gray-50"
                 )}
               >
