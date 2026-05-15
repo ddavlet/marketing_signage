@@ -125,9 +125,6 @@ def heartbeat(request):
 
     playlist_version = device.assigned_playlist.version if device.assigned_playlist else 0
 
-    def _hhmm(t):
-        return t.strftime("%H:%M") if t else ""
-
     return JsonResponse({
         "playlist_version": playlist_version,
         "server_time": now().isoformat(),
@@ -159,6 +156,10 @@ def ack_command(request, command_id):
 
 
 # ── sync ───────────────────────────────────────────────────────────────────
+
+def _hhmm(t):
+    return t.strftime("%H:%M") if t else ""
+
 
 def _serialize_items(items, request):
     out = []
