@@ -55,7 +55,7 @@ services:
         condition: service_healthy
     labels:
       - traefik.enable=true
-      - "traefik.http.routers.backend.rule=Host(`${DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/media`) || PathPrefix(`/admin`) || PathPrefix(`/player`) || PathPrefix(`/static`) || Path(`/sw.js`))"
+      - "traefik.http.routers.backend.rule=Host(`${DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/media/`) || PathPrefix(`/admin`) || PathPrefix(`/player`) || PathPrefix(`/static`) || Path(`/sw.js`))"
       - traefik.http.routers.backend.entrypoints=websecure
       - traefik.http.routers.backend.tls.certresolver=letsencrypt
       - traefik.http.routers.backend.priority=10
