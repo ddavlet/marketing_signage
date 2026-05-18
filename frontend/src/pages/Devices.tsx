@@ -12,7 +12,7 @@ import {
   RotateCcw,
   Save,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/Button";
@@ -96,12 +96,14 @@ function DeviceRow({
 function LocationGroup({
   location,
   devices,
+  children,
   depth,
   selectedId,
   onSelect,
 }: {
   location: { id: number; name: string } | null;
   devices: any[];
+  children?: ReactNode;
   depth: number;
   selectedId: number | null;
   onSelect: (d: any) => void;
@@ -128,22 +130,50 @@ function LocationGroup({
         <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex-1 truncate">
           {location ? location.name : "Unassigned"}
         </span>
-        <span className="text-[10px] text-gray-400 flex-shrink-0">{devices.length}</span>
+        {devices.length > 0 && (
+          <span className="text-[10px] text-gray-400 flex-shrink-0">{devices.length}</span>
+        )}
       </div>
 
-      {/* Devices */}
-      {open &&
-        devices.map((d) => (
-          <DeviceRow
-            key={d.id}
-            device={d}
-            depth={depth + 1}
-            selected={selectedId === d.id}
-            onClick={() => onSelect(d)}
-          />
-        ))}
+      {/* Devices and child location groups */}
+      {open && (
+        <>
+          {devices.map((d) => (
+            <DeviceRow
+              key={d.id}
+              device={d}
+              depth={depth + 1}
+              selected={selectedId === d.id}
+              onClick={() => onSelect(d)}
+            />
+          ))}
+          {children}
+        </>
+      )}
     </div>
   );
+}
+
+function renderLocationTree(
+  nodes: any[],
+  byLocation: Map<number | null, any[]>,
+  depth: number,
+  selectedId: number | null,
+  onSelect: (d: any) => void
+): ReactNode {
+  return nodes.map((node) => (
+    <LocationGroup
+      key={node.id}
+      location={{ id: node.id, name: node.name }}
+      devices={byLocation.get(node.id) ?? []}
+      depth={depth}
+      selectedId={selectedId}
+      onSelect={onSelect}
+    >
+      {node.children?.length > 0 &&
+        renderLocationTree(node.children, byLocation, depth + 1, selectedId, onSelect)}
+    </LocationGroup>
+  ));
 }
 
 // ── device detail panel ────────────────────────────────────────────────────
@@ -788,31 +818,13 @@ export default function Devices() {
             </div>
           ) : (
             <>
-              {/* All locations in tree order — preserves cascade hierarchy */}
-              {flatLocations.map((loc) =>
-                byLocation.has(loc.id) ? (
-                  <LocationGroup
-                    key={loc.id}
-                    location={loc}
-                    devices={byLocation.get(loc.id) ?? []}
-                    depth={loc.depth}
-                    selectedId={selectedDevice?.id ?? null}
-                    onSelect={(d) => { setSelectedDevice(d); setShowRegister(false); }}
-                  />
-                ) : (
-                  <div
-                    key={loc.id}
-                    style={{ paddingLeft: `${8 + loc.depth * 20}px` }}
-                    className="flex items-center gap-2 px-3 py-2 opacity-40 select-none"
-                  >
-                    <ChevronRight size={12} className="text-gray-300" />
-                    <MapPin size={13} className="text-gray-300 flex-shrink-0" />
-                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide truncate">
-                      {loc.name}
-                    </span>
-                    <span className="text-[10px] text-gray-300">0</span>
-                  </div>
-                )
+              {/* Recursive location tree */}
+              {renderLocationTree(
+                locationTree,
+                byLocation,
+                0,
+                selectedDevice?.id ?? null,
+                (d) => { setSelectedDevice(d); setShowRegister(false); }
               )}
 
               {/* Unassigned */}
