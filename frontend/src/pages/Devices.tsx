@@ -788,10 +788,9 @@ export default function Devices() {
             </div>
           ) : (
             <>
-              {/* Locations with their devices */}
-              {flatLocations
-                .filter((l) => byLocation.has(l.id))
-                .map((loc) => (
+              {/* All locations in tree order — preserves cascade hierarchy */}
+              {flatLocations.map((loc) =>
+                byLocation.has(loc.id) ? (
                   <LocationGroup
                     key={loc.id}
                     location={loc}
@@ -800,12 +799,7 @@ export default function Devices() {
                     selectedId={selectedDevice?.id ?? null}
                     onSelect={(d) => { setSelectedDevice(d); setShowRegister(false); }}
                   />
-                ))}
-
-              {/* Locations with no devices — still show so hierarchy is visible */}
-              {flatLocations
-                .filter((l) => !byLocation.has(l.id))
-                .map((loc) => (
+                ) : (
                   <div
                     key={loc.id}
                     style={{ paddingLeft: `${8 + loc.depth * 20}px` }}
@@ -818,7 +812,8 @@ export default function Devices() {
                     </span>
                     <span className="text-[10px] text-gray-300">0</span>
                   </div>
-                ))}
+                )
+              )}
 
               {/* Unassigned */}
               {unassigned.length > 0 && (
