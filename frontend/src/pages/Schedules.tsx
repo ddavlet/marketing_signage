@@ -151,6 +151,14 @@ function ScheduleRow({ s, devices, playlists, onDelete, onUpdate, isUpdating, ca
             Active
           </label>
         </div>
+        {(() => {
+          const tz = devices.find(d => String(d.id) === form.device)?.timezone;
+          return tz ? (
+            <p className="text-xs text-gray-400">
+              Timezone: <span className="font-medium text-gray-500">{tz}</span>
+            </p>
+          ) : null;
+        })()}
         <div className="flex gap-2">
           <Button size="sm" onClick={save} loading={isUpdating} disabled={!form.device || !form.playlist || !form.days_of_week.length}>Save</Button>
           <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
@@ -326,16 +334,26 @@ export default function Schedules() {
           </div>
 
           {/* Time range */}
-          <div className="flex items-center gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Start time</label>
-              <input type="time" value={form.start_time} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <div className="space-y-2">
+            <div className="flex items-center gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Start time</label>
+                <input type="time" value={form.start_time} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <span className="text-gray-400 mt-5">→</span>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">End time</label>
+                <input type="time" value={form.end_time} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
             </div>
-            <span className="text-gray-400 mt-5">→</span>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">End time</label>
-              <input type="time" value={form.end_time} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            </div>
+            {(() => {
+              const tz = devices.find(d => String(d.id) === form.device)?.timezone;
+              return tz ? (
+                <p className="text-xs text-gray-400">
+                  Timezone: <span className="font-medium text-gray-500">{tz}</span>
+                </p>
+              ) : null;
+            })()}
           </div>
 
           <div className="flex gap-2 pt-1">
