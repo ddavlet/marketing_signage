@@ -484,11 +484,11 @@ function DeviceDetail({
           {form.ssh_port && (
             <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5">
               <code className="flex-1 text-xs font-mono text-gray-600 break-all">
-                {`ssh -J syrop user@localhost -p ${form.ssh_port}`}
+                {`ssh -J kolberg user@localhost -p ${form.ssh_port}`}
               </code>
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(`ssh -J syrop user@localhost -p ${form.ssh_port}`);
+                  navigator.clipboard.writeText(`ssh -J kolberg user@localhost -p ${form.ssh_port}`);
                   toast.success("SSH command copied");
                 }}
                 className="text-gray-400 hover:text-gray-600 flex-shrink-0"
