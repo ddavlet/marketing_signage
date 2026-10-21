@@ -2,6 +2,7 @@ services:
 
   postgres:
     image: postgres:17-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -16,6 +17,7 @@ services:
 
   backend:
     build: ./backend
+    restart: unless-stopped
     command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
     volumes:
       - ./backend:/app
@@ -45,6 +47,7 @@ services:
 
   frontend:
     build: ./frontend
+    restart: unless-stopped
     volumes:
       - ./frontend:/app
       - /app/node_modules
